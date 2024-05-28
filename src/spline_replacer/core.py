@@ -9,8 +9,6 @@ import OCP
 
 def facet_wire(
     wire,
-    facet_splines: bool = True,
-    facet_circles: bool = True,
     tolerance: float = 1e-3,
 ):
     """Converts specified curved edge types from a wire into a series of
@@ -29,31 +27,35 @@ def facet_wire(
     Returns:
         cadquery.Wire
     """
-    edges = []
+    new_edges = []
 
-    types_to_facet = []
-    if facet_splines:
-        types_to_facet.append("BSPLINE")
-    if facet_circles:
-        types_to_facet.append("CIRCLE")
+    types_to_facet = ["BSPLINE", "BEZIER"]
 
     if isinstance(wire, cq.occ_impl.shapes.Edge):
         # this is for when a edge is passed
-        iterable_of_wires = [wire]
+        edges = [wire]
     elif isinstance(wire, cq.occ_impl.shapes.Wire):
         # this is for imported stp files
-        iterable_of_wires = wire.Edges()
+        edges = wire.Edges()
     else:
         # this is for cadquery generated solids
-        iterable_of_wires = wire.val().Edges()
+        edges = wire.val().Edges()
 
-    for edge in iterable_of_wires:
+    new_edges = []
+    for edge in edges:
         if edge.geomType() in types_to_facet:
-            edges.extend(transform_curve(edge, tolerance=tolerance).Edges())
+            print('spline or bezier edge found')
+            new_edges.extend(transform_curve(edge, tolerance=tolerance).Edges())
         else:
-            edges.append(edge)
+            # print('not spline edge')
+            new_edges.append(edge)
 
-    return edges
+    # new_wire = cq.Wire(new_edges)
+    new_wires = cq.occ_impl.shapes.edgesToWires(new_edges)
+    new_new_wires = []
+    for new_wire in new_wires:
+        new_new_wires.append(new_wire.close())
+    return new_new_wires
 
 def transform_curve(edge, tolerance: float = 1e-3):
     """Converts a curved edge into a series of straight lines (facetets) with
@@ -62,7 +64,7 @@ def transform_curve(edge, tolerance: float = 1e-3):
     Args:
         edge (cadquery.Wire): The CadQuery wire to redraw as a series of
             straight lines (facet)
-        tolerance: faceting toleranceto use when faceting cirles and
+        tolerance: faceting tolerance to use when faceting cirles and
             splines. Defaults to 1e-3.
 
     Returns:
@@ -76,8 +78,49 @@ def transform_curve(edge, tolerance: float = 1e-3):
     points = GCPnts_QuasiUniformDeflection(curve, tolerance, start, end)
     verts = (cq.Vector(points.Value(i + 1)) for i in range(points.NbPoints()))
 
-    return cq.Wire.makePolygon(verts)
+    return cq.Wire.makePolygon(verts, close=True)
 
 import cadquery as cq
 
-cq.Workplane.text("G")
+solid = cq.Workplane().text(txt='G', fontsize=10, distance=1)
+
+# for edge in solid.val().Edges():
+all_new_wires = []
+# for i,wire in enumerate(solid.val().Wires()):
+#     new_wires = facet_wire(wire)
+#     all_new_wires.append(new_wires)
+    # cq.Face.makeFromWires(new_wires)
+
+for face in solid.val().Faces():
+    for w, wire in enumerate(face.wires()):
+        print(w)
+        new_wires = facet_wire(wire)
+
+new_face = cq.occ_impl.shapes.wiresToFaces(new_wires)
+
+import OCP
+
+shell = OCP.TopoDS.TopoDS_Shell()
+bldr = OCP.BRep.BRep_Builder()
+bldr.MakeShell(shell)
+for face in new_face:
+    bldr.Add(shell, face.wrapped)
+s = cq.Solid.makeSolid(cq.Shell(shell))
+s.exportStep('desplined.stp')
+
+
+# import OCP
+
+# shell = OCP.TopoDS.TopoDS_Shell()
+# bldr = OCP.BRep.BRep_Builder()
+# bldr.MakeShell(shell)
+
+# for face in solid.val().Faces():
+#     new_wires_in_face = []
+#     for w, wire in enumerate(face.wires()):
+#         print(w)
+#         new_wires = facet_wire(wire)
+#         new_wires_in_face.extend(new_wires)
+#     # new_face = cq.Face.makeFromWires(new_wires_in_face)
+#     new_face = cq.occ_impl.shapes.wiresToFaces(new_wires_in_face)
+#     bldr.Add(shell, new_face.wrapped)
