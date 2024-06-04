@@ -46,33 +46,58 @@ def makeNSidedSurface(
     return cq.Shape.cast(face).fix()
 
 
-# def replace_splines(
-#     solids: typing.Union[cq.Workplane, cq.Assembly],
-#     tolerance: float = 0.1,
-#     theAngularDeflection: float = 0.5,
-#     theCurvatureDeflection: float = 0.01,
-# ):
-    
+def contains_splines(solids):
 
-# spline_free_solid = replace_splines(assembly)
+    if isinstance(solids, cq.Workplane):
+        s_iterator = [solids]
+    elif isinstance(solids, cq.Assembly):
+        s_iterator = [s for s in solids.toCompound()]
+
+    solids_with_splines = []
+    for s_counter, solid in enumerate(s_iterator):
+        spline_found = False
+        if hasattr(solid, "val"):
+            face_iterator = solid.val().Faces()
+        else:
+            face_iterator = solid.Faces()
+
+        for face in face_iterator:
+            if face.geomType() == "BSPLINE":
+                spline_found = True
+            for e in face.edges():
+                if e.geomType() == "BSPLINE":
+                    spline_found = True
+
+        if spline_found:
+            solids_with_splines.append(s_counter)
+    if len(solids_with_splines) > 0:
+        return True
+    return False
+
 
 def replace_splines(
-    solids: typing.Union[cq.Workplane, cq.Assembly],
+    solids: typing.Union[cq.Workplane, cq.Assembly, str],
     tolerance: float = 0.1,
     theAngularDeflection: float = 0.5,
     theCurvatureDeflection: float = 0.01,
 ):
+
+    if isinstance(solids, str):
+        solids = cq.importers.importStep(solids)
+
+    if not contains_splines(solids):
+        print("no splines found")
 
     spine_free_assembly = cq.Assembly()
 
     if isinstance(solids, cq.Workplane):
         s_iterator = [solids]
     elif isinstance(solids, cq.Assembly):
-        s_iterator= [s for s in solids.toCompound()]
-        
+        s_iterator = [s for s in solids.toCompound()]
+
     for solid in s_iterator:
         new_faces = []
-        if hasattr(solid, 'val'):
+        if hasattr(solid, "val"):
             face_iterator = solid.val().Faces()
         else:
             face_iterator = solid.Faces()
@@ -132,12 +157,20 @@ def replace_splines(
                             face.wrapped, wires[0].Edges(), degree=2
                         )
 
-                    tess = spine_face_with_straight_edges.tessellate(tolerance=tolerance)
+                    tess = spine_face_with_straight_edges.tessellate(
+                        tolerance=tolerance
+                    )
                     for triangle in tess[1]:
                         # todo check if these should be clockwise or anticlockwise
-                        edge1 = cq.Edge.makeLine(tess[0][triangle[0]], tess[0][triangle[1]])
-                        edge2 = cq.Edge.makeLine(tess[0][triangle[1]], tess[0][triangle[2]])
-                        edge3 = cq.Edge.makeLine(tess[0][triangle[0]], tess[0][triangle[2]])
+                        edge1 = cq.Edge.makeLine(
+                            tess[0][triangle[0]], tess[0][triangle[1]]
+                        )
+                        edge2 = cq.Edge.makeLine(
+                            tess[0][triangle[1]], tess[0][triangle[2]]
+                        )
+                        edge3 = cq.Edge.makeLine(
+                            tess[0][triangle[0]], tess[0][triangle[2]]
+                        )
                         wire = cq.Wire.combine([edge1, edge2, edge3])
                         new_face = cq.occ_impl.shapes.wiresToFaces([wire[0].close()])
                         new_faces.append(new_face[0])
@@ -149,40 +182,3 @@ def replace_splines(
         spline_free_solid = cq.Solid.makeSolid(sh)
         spine_free_assembly.add(spline_free_solid)
     return spine_free_assembly
-
-
-
-
-
-solid1 = (
-    cq.Workplane("XY")
-    .polyline([(1, 1), (1, 2)])
-    .spline([(1, 2), (2, 4), (3, 2)])
-    .polyline([(3, 2), (3, 1)])
-    .threePointArc((2, 0), (1, 1))
-    .close()
-    .extrude(1)
-)
-
-cq.exporters.export(solid1, "solid1_with_spines.step")
-spline_free_solid = replace_splines(solid1)
-spline_free_solid.save("solid_without_spines.step")
-
-
-solid2 = (
-    cq.Workplane("XY")
-    .polyline([(1, 1), (1, 2)])
-    .spline([(1, 2), (2, 4), (3, 2)])
-    .polyline([(3, 2), (3, 1)])
-    .threePointArc((2, 0), (1, 1))
-    .close()
-    .extrude(-1)
-)
-cq.exporters.export(solid2, "solid2_with_spines.step")
-
-
-assembly = cq.Assembly()
-assembly.add(solid1)
-assembly.add(solid2)
-spline_free_assembly = replace_splines(assembly)
-spline_free_assembly.save("assembly_without_spines.step")
