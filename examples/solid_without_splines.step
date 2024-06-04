@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('Open CASCADE Model'),'2;1');
-FILE_NAME('Open CASCADE Shape Model','2024-06-05T00:00:23',('Author'),(
+FILE_NAME('Open CASCADE Shape Model','2024-06-05T00:21:54',('Author'),(
     'Open CASCADE'),'Open CASCADE STEP processor 7.7','Open CASCADE 7.7'
   ,'Unknown');
 FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));
@@ -15,8 +15,8 @@ DATA;
 #4 = PRODUCT_DEFINITION_SHAPE('','',#5);
 #5 = PRODUCT_DEFINITION('design','',#6,#9);
 #6 = PRODUCT_DEFINITION_FORMATION('','',#7);
-#7 = PRODUCT('390b0b22-22c6-11ef-8876-a434d95c2a9c',
-  '390b0b22-22c6-11ef-8876-a434d95c2a9c','',(#8));
+#7 = PRODUCT('3a9659b2-22c9-11ef-ac91-a434d95c2a9c',
+  '3a9659b2-22c9-11ef-ac91-a434d95c2a9c','',(#8));
 #8 = PRODUCT_CONTEXT('',#2,'mechanical');
 #9 = PRODUCT_DEFINITION_CONTEXT('part definition',#2,'design');
 #10 = SHAPE_REPRESENTATION('',(#11,#15),#19);
@@ -42,8 +42,8 @@ GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT((#23)) GLOBAL_UNIT_ASSIGNED_CONTEXT(
 #26 = PRODUCT_DEFINITION_SHAPE('','',#27);
 #27 = PRODUCT_DEFINITION('design','',#28,#31);
 #28 = PRODUCT_DEFINITION_FORMATION('','',#29);
-#29 = PRODUCT('396babbc-22c6-11ef-8876-a434d95c2a9c',
-  '396babbc-22c6-11ef-8876-a434d95c2a9c','',(#30));
+#29 = PRODUCT('3afad612-22c9-11ef-ac91-a434d95c2a9c',
+  '3afad612-22c9-11ef-ac91-a434d95c2a9c','',(#30));
 #30 = PRODUCT_CONTEXT('',#2,'mechanical');
 #31 = PRODUCT_DEFINITION_CONTEXT('part definition',#2,'design');
 #32 = SHAPE_REPRESENTATION('',(#11,#33),#37);
@@ -72,8 +72,8 @@ SHAPE_REPRESENTATION_RELATIONSHIP() );
 #49 = PRODUCT_DEFINITION_SHAPE('','',#50);
 #50 = PRODUCT_DEFINITION('design','',#51,#54);
 #51 = PRODUCT_DEFINITION_FORMATION('','',#52);
-#52 = PRODUCT('396babbc-22c6-11ef-8876-a434d95c2a9c_part',
-  '396babbc-22c6-11ef-8876-a434d95c2a9c_part','',(#53));
+#52 = PRODUCT('3afad612-22c9-11ef-ac91-a434d95c2a9c_part',
+  '3afad612-22c9-11ef-ac91-a434d95c2a9c_part','',(#53));
 #53 = PRODUCT_CONTEXT('',#2,'mechanical');
 #54 = PRODUCT_DEFINITION_CONTEXT('part definition',#2,'design');
 #55 = ADVANCED_BREP_SHAPE_REPRESENTATION('',(#11,#56),#10953);
