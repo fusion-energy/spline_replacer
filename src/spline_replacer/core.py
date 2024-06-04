@@ -1,126 +1,188 @@
-from pathlib import Path
 import typing
-import cadquery as cq
-import numpy as np
-from cadquery import importers
-from OCP.GCPnts import GCPnts_QuasiUniformDeflection
-from cadquery.occ_impl import shapes
-import OCP
 
-def facet_wire(
-    wire,
-    tolerance: float = 1e-3,
+import cadquery as cq
+from OCP import BRepAdaptor, GCPnts
+from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeFilling
+from OCP.GeomAbs import GeomAbs_C0
+from OCP.ShapeAnalysis import ShapeAnalysis_FreeBounds
+from OCP.TopTools import TopTools_HSequenceOfShape
+
+
+def makeNSidedSurface(
+    face,
+    edges,
+    continuity=GeomAbs_C0,
+    degree=2,
+    nbPtsOnCur=15,
+    nbIter=2,
+    anisotropy=False,
+    tol2d=0.00001,
+    tol3d=0.0001,
+    tolAng=0.01,
+    tolCurv=0.1,
+    maxDeg=8,
+    maxSegments=9,
 ):
-    """Converts specified curved edge types from a wire into a series of
-    straight lines (facetets) with the provided tol (tolerance).
 
-    Args:
-        wire (cadquery.Wire): The CadQuery wire to select edge from which will
-            be redraw as a series of straight lines (facet).
-        facet_splines: If True then spline edges will be faceted. Defaults
-            to True.
-        facet_splines: If True then circle edges will be faceted.Defaults
-            to True.
-        tolerance: faceting toleranceto use when faceting cirles and
-            splines. Defaults to 1e-3.
-
-    Returns:
-        cadquery.Wire
-    """
-    new_edges = []
-
-    types_to_facet = ["BSPLINE", "BEZIER"]
-
-    if isinstance(wire, cq.occ_impl.shapes.Edge):
-        # this is for when a edge is passed
-        edges = [wire]
-    elif isinstance(wire, cq.occ_impl.shapes.Wire):
-        # this is for imported stp files
-        edges = wire.Edges()
-    else:
-        # this is for cadquery generated solids
-        edges = wire.val().Edges()
-
-    new_edges = []
+    n_sided = BRepOffsetAPI_MakeFilling(
+        degree,
+        nbPtsOnCur,
+        nbIter,
+        anisotropy,
+        tol2d,
+        tol3d,
+        tolAng,
+        tolCurv,
+        maxDeg,
+        maxSegments,
+    )
     for edge in edges:
-        if edge.geomType() in types_to_facet:
-            print('spline or bezier edge found')
-            new_edges.extend(transform_curve(edge, tolerance=tolerance).Edges())
+        n_sided.Add(edge.wrapped, continuity)
+
+    n_sided.LoadInitSurface(face)
+    n_sided.Build()
+    face = n_sided.Shape()
+    return cq.Shape.cast(face).fix()
+
+
+# def replace_splines(
+#     solids: typing.Union[cq.Workplane, cq.Assembly],
+#     tolerance: float = 0.1,
+#     theAngularDeflection: float = 0.5,
+#     theCurvatureDeflection: float = 0.01,
+# ):
+    
+
+# spline_free_solid = replace_splines(assembly)
+
+def replace_splines(
+    solids: typing.Union[cq.Workplane, cq.Assembly],
+    tolerance: float = 0.1,
+    theAngularDeflection: float = 0.5,
+    theCurvatureDeflection: float = 0.01,
+):
+
+    spine_free_assembly = cq.Assembly()
+
+    if isinstance(solids, cq.Workplane):
+        s_iterator = [solids]
+    elif isinstance(solids, cq.Assembly):
+        s_iterator= [s for s in solids.toCompound()]
+        
+    for solid in s_iterator:
+        new_faces = []
+        if hasattr(solid, 'val'):
+            face_iterator = solid.val().Faces()
         else:
-            # print('not spline edge')
-            new_edges.append(edge)
+            face_iterator = solid.Faces()
 
-    # new_wire = cq.Wire(new_edges)
-    new_wires = cq.occ_impl.shapes.edgesToWires(new_edges)
-    new_new_wires = []
-    for new_wire in new_wires:
-        new_new_wires.append(new_wire.close())
-    return new_new_wires
+        for face in face_iterator:
+            spline_found = False
+            edges = []
+            for e in face.edges():
+                if e.geomType() == "BSPLINE":
+                    new_line_edges = GCPnts.GCPnts_TangentialDeflection(
+                        BRepAdaptor.BRepAdaptor_Curve(e.wrapped),
+                        theAngularDeflection=theAngularDeflection,
+                        theCurvatureDeflection=theCurvatureDeflection,
+                    )
+                    if new_line_edges.NbPoints() > 1:
+                        for i in range(2, new_line_edges.NbPoints() + 1):
+                            p_0 = new_line_edges.Value(i - 1)
+                            p_1 = new_line_edges.Value(i)
+                            edge = cq.Edge.makeLine(
+                                cq.Vector(p_0.X(), p_0.Y(), p_0.Z()),
+                                cq.Vector(p_1.X(), p_1.Y(), p_1.Z()),
+                            )
+                            edges.append(edge)
+                    spline_found = True
+                else:
+                    edges.append(e)
 
-def transform_curve(edge, tolerance: float = 1e-3):
-    """Converts a curved edge into a series of straight lines (facetets) with
-    the provided tolerance.
+            if spline_found == True:
+                wire = cq.Wire.combine(edges)
+                # todo replace with try except with something that finds if the wire is planar
+                try:
+                    new_face = cq.occ_impl.shapes.wiresToFaces([wire[0].close()])
+                    new_faces.append(new_face[0])
+                except:
 
-    Args:
-        edge (cadquery.Wire): The CadQuery wire to redraw as a series of
-            straight lines (facet)
-        tolerance: faceting tolerance to use when faceting cirles and
-            splines. Defaults to 1e-3.
+                    # edges to wires
+                    wires_out = TopTools_HSequenceOfShape()
+                    edges_in = TopTools_HSequenceOfShape()
+                    for el in edges:
+                        edges_in.Append(el.wrapped)
+                    ShapeAnalysis_FreeBounds.ConnectEdgesToWires_s(
+                        edges_in, 1e-6, False, wires_out
+                    )
 
-    Returns:
-        cadquery.Wire
-    """
+                    wires = [cq.Shape.cast(el) for el in wires_out]
 
-    curve = edge._geomAdaptor()  # adapt the edge into curve
-    start = curve.FirstParameter()
-    end = curve.LastParameter()
+                    bldr = BRepBuilderAPI_MakeFace(wires[0].wrapped, False)
 
-    points = GCPnts_QuasiUniformDeflection(curve, tolerance, start, end)
-    verts = (cq.Vector(points.Value(i + 1)) for i in range(points.NbPoints()))
+                    for w in wires[1:]:
+                        bldr.Add(w.wrapped)
 
-    return cq.Wire.makePolygon(verts, close=True)
+                    bldr.Build()
+                    if bldr.IsDone():
+                        spine_face_with_straight_edges = cq.Shape.cast(bldr.Shape())
+                    else:
+                        spine_face_with_straight_edges = makeNSidedSurface(
+                            face.wrapped, wires[0].Edges(), degree=2
+                        )
 
-import cadquery as cq
+                    tess = spine_face_with_straight_edges.tessellate(tolerance=tolerance)
+                    for triangle in tess[1]:
+                        # todo check if these should be clockwise or anticlockwise
+                        edge1 = cq.Edge.makeLine(tess[0][triangle[0]], tess[0][triangle[1]])
+                        edge2 = cq.Edge.makeLine(tess[0][triangle[1]], tess[0][triangle[2]])
+                        edge3 = cq.Edge.makeLine(tess[0][triangle[0]], tess[0][triangle[2]])
+                        wire = cq.Wire.combine([edge1, edge2, edge3])
+                        new_face = cq.occ_impl.shapes.wiresToFaces([wire[0].close()])
+                        new_faces.append(new_face[0])
 
-solid = cq.Workplane().text(txt='G', fontsize=10, distance=1)
+            else:
+                new_faces.append(face)
 
-# for edge in solid.val().Edges():
-all_new_wires = []
-# for i,wire in enumerate(solid.val().Wires()):
-#     new_wires = facet_wire(wire)
-#     all_new_wires.append(new_wires)
-    # cq.Face.makeFromWires(new_wires)
-
-for face in solid.val().Faces():
-    for w, wire in enumerate(face.wires()):
-        print(w)
-        new_wires = facet_wire(wire)
-
-new_face = cq.occ_impl.shapes.wiresToFaces(new_wires)
-
-import OCP
-
-shell = OCP.TopoDS.TopoDS_Shell()
-bldr = OCP.BRep.BRep_Builder()
-bldr.MakeShell(shell)
-for face in new_face:
-    bldr.Add(shell, face.wrapped)
-s = cq.Solid.makeSolid(cq.Shell(shell))
-s.exportStep('desplined.stp')
+        sh = cq.Shell.makeShell(new_faces)
+        spline_free_solid = cq.Solid.makeSolid(sh)
+        spine_free_assembly.add(spline_free_solid)
+    return spine_free_assembly
 
 
-# import OCP
 
-# shell = OCP.TopoDS.TopoDS_Shell()
-# bldr = OCP.BRep.BRep_Builder()
-# bldr.MakeShell(shell)
 
-# for face in solid.val().Faces():
-#     new_wires_in_face = []
-#     for w, wire in enumerate(face.wires()):
-#         print(w)
-#         new_wires = facet_wire(wire)
-#         new_wires_in_face.extend(new_wires)
-#     # new_face = cq.Face.makeFromWires(new_wires_in_face)
-#     new_face = cq.occ_impl.shapes.wiresToFaces(new_wires_in_face)
-#     bldr.Add(shell, new_face.wrapped)
+
+solid1 = (
+    cq.Workplane("XY")
+    .polyline([(1, 1), (1, 2)])
+    .spline([(1, 2), (2, 4), (3, 2)])
+    .polyline([(3, 2), (3, 1)])
+    .threePointArc((2, 0), (1, 1))
+    .close()
+    .extrude(1)
+)
+
+cq.exporters.export(solid1, "solid1_with_spines.step")
+spline_free_solid = replace_splines(solid1)
+spline_free_solid.save("solid_without_spines.step")
+
+
+solid2 = (
+    cq.Workplane("XY")
+    .polyline([(1, 1), (1, 2)])
+    .spline([(1, 2), (2, 4), (3, 2)])
+    .polyline([(3, 2), (3, 1)])
+    .threePointArc((2, 0), (1, 1))
+    .close()
+    .extrude(-1)
+)
+cq.exporters.export(solid2, "solid2_with_spines.step")
+
+
+assembly = cq.Assembly()
+assembly.add(solid1)
+assembly.add(solid2)
+spline_free_assembly = replace_splines(assembly)
+spline_free_assembly.save("assembly_without_spines.step")
