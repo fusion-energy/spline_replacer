@@ -3,7 +3,7 @@ A Python package for automatically replacing spline edges / faces in CAD geometr
 
 Spines can not be directly converted to Constructive Solid Geometry (CSG).
 
-CAD to CSG conversion software such as [McCad](https://github.com/inr-kit/McCad-Salome-Binaries) and [Geouned](https://github.com/GEOUNED-org/GEOUNED) can then be used to convert the spline free geometry.
+Once splines have been removed then CAD to CSG conversion software such as [McCad](https://github.com/inr-kit/McCad-Salome-Binaries) and [Geouned](https://github.com/GEOUNED-org/GEOUNED) can then be used to convert the spline free geometry to CSG.
 
 This technique is based on [CadQuery forum post staring in 2022 and getting solved in 2024](https://groups.google.com/g/cadquery/c/Ia84dtcnCo0) by @adam-urbanczyk and @jmwright without whom this package would not be possible.
 
