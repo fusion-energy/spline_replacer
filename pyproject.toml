@@ -11,7 +11,7 @@ license = {file = "LICENSE.txt"}
 description = "Converts CAD files to a DAGMC h5m file"
 readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["spline", "csg", "openmc", "monte", "carlo"]
+keywords = ["spline", "csg", "polylines", "monte", "carlo"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
