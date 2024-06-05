@@ -12,10 +12,10 @@ sPnts = [
     (0, 1.0),
 ]
 r = s.lineTo(3.0, 0).lineTo(3.0, 1.0).spline(sPnts, includeCurrent=True).close()
-solid1 = r.extrude(0.5)
+solid2 = r.extrude(0.5)
 
 # contains no splines
-solid2 = cq.Workplane("XY").box(15, 15, 0.5).faces(">Z").workplane().hole(9)
+solid1 = cq.Workplane("XY").box(15, 15, 0.5).faces(">Z").workplane().hole(9)
 
 assembly = cq.Assembly()
 assembly.add(solid1)
