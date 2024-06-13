@@ -11,13 +11,9 @@ The edges of the CAD geometry that contain splines are faceted with the user spe
 
 Other surfaces that convert to CSG such as cylinders, planes, cones etc are not faceted as the can be converted to CSG geometry primitives.
 
-CAD geometry with two spline edges on the upper curve.
-
-![cad with spines](docs/with_splines_1.png)
-
-CAD geometry converted to a spline free representation. Tolerances can be decreased for improved accuracy.
-
-![cad without spines](docs/without_splines_1.png)
+| CAD geometry with two spline edges on the upper curve | CAD geometry converted to a spline free representation |
+|-----|-----|
+| ![cad with spines](docs/with_splines_1.png) | ![cad without spines](docs/without_splines_1.png) |
 
 ## Install
 
